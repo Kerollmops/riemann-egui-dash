@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-
-use eframe::egui::{Color32, Direction, Id, Layout, RichText};
+use eframe::egui::{Color32, Direction, Id, Layout};
 use eframe::{egui, App, Frame};
-use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
-use serde::{Deserialize, Deserializer};
-use serde_json::Value;
 use url::Url;
+
+use crate::views::Log;
 
 pub struct RiemannDashApp {
     valid_url: Url,
@@ -15,7 +12,7 @@ pub struct RiemannDashApp {
 }
 
 impl App for RiemannDashApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.label("WS URL:");
@@ -86,7 +83,7 @@ impl Default for RiemannDashApp {
 
 struct Workspace {
     name: String,
-    widgets: Vec<Widget>,
+    widgets: Vec<Log>,
 }
 
 impl Workspace {
@@ -103,17 +100,29 @@ impl Workspace {
             }
             ui.separator();
             if ui.button("☟ scrolling list").clicked() {
-                self.widgets.push(Widget::default());
+                self.widgets.push(Log::default());
             }
         });
 
+        let mut to_delete = Vec::new();
         egui::CentralPanel::default().show(ctx, |_ui| {
             for (i, widget) in self.widgets.iter_mut().enumerate() {
-                egui::Window::new("<widget type name>").id(Id::new(i)).show(ctx, |ui| {
-                    widget.ui(url, ui);
-                });
+                let mut opened = true;
+                egui::Window::new("<widget type name>")
+                    .id(Id::new(i))
+                    .open(&mut opened)
+                    .show(ctx, |ui| widget.ui(url, ui));
+                if opened == false {
+                    to_delete.push(i);
+                }
             }
         });
+
+        let mut removed = 0;
+        for i in to_delete {
+            self.widgets.remove(i - removed);
+            removed += 1;
+        }
 
         is_open
     }
@@ -123,139 +132,4 @@ impl Default for Workspace {
     fn default() -> Self {
         Self { name: "Riemann".to_string(), widgets: Default::default() }
     }
-}
-
-#[derive(Default)]
-struct Widget {
-    query: String,
-    events: Vec<WsEvent>,
-    event_receiver: Option<EventReceiver>,
-}
-
-impl Widget {
-    fn ui(&mut self, url: &Url, ui: &mut egui::Ui) {
-        if let Some(event_receiver) = &self.event_receiver {
-            while let Some(event) = event_receiver.try_recv() {
-                self.events.push(event);
-            }
-        }
-
-        ui.collapsing("Query string", |ui| {
-            ui.group(|ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    let response = ui.add(
-                        egui::TextEdit::multiline(&mut self.query)
-                            .font(egui::TextStyle::Monospace) // for cursor height
-                            .code_editor()
-                            .desired_rows(3)
-                            .lock_focus(true)
-                            .desired_width(f32::INFINITY),
-                    );
-
-                    if (response.lost_focus() && !self.query.is_empty())
-                        || self
-                            .event_receiver
-                            .as_ref()
-                            .map_or(false, |er| base_url(er.url().clone()) != base_url(url.clone()))
-                    {
-                        let ctx = ui.ctx().clone();
-                        let wakeup = move || ctx.request_repaint(); // wake up UI thread on new message
-                        let url = websocket_url(url, true, &self.query);
-                        match EventReceiver::connect(url, wakeup) {
-                            Ok(event_receiver) => self.event_receiver = Some(event_receiver),
-                            Err(_) => (),
-                        }
-                    }
-                });
-            });
-        });
-
-        egui::ScrollArea::vertical().stick_to_bottom().show(ui, |ui| {
-            for event in &self.events {
-                let text = match event {
-                    WsEvent::Message(WsMessage::Text(text)) => {
-                        match serde_json::from_str::<Event>(text) {
-                            Ok(event) => RichText::new(format!("{:?}", event)),
-                            Err(e) => RichText::new(format!("{:?} {}", event, e))
-                                .color(Color32::LIGHT_RED),
-                        }
-                    }
-                    otherwise => {
-                        RichText::new(format!("{:?}", otherwise)).color(Color32::LIGHT_RED)
-                    }
-                };
-                ui.label(text);
-            }
-        });
-    }
-}
-
-struct EventReceiver {
-    url: Url,
-    // don't drop the sender or the connection will be closed
-    _sender: WsSender,
-    receiver: WsReceiver,
-}
-
-impl EventReceiver {
-    pub fn connect(url: Url, wakeup: impl Fn() + Send + Sync + 'static) -> ewebsock::Result<Self> {
-        match ewebsock::connect_with_wakeup(url.as_str(), wakeup) {
-            Ok((sender, receiver)) => Ok(EventReceiver { url, _sender: sender, receiver }),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    pub fn try_recv(&self) -> Option<WsEvent> {
-        self.receiver.try_recv()
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Event {
-    time: Option<String>,
-    state: Option<String>,
-    service: Option<String>,
-    host: Option<String>,
-    description: Option<String>,
-    #[serde(deserialize_with = "deserialize_collections")]
-    tags: Vec<String>,
-    ttl: Option<f32>,
-    time_micros: Option<i64>,
-    metric: Option<f32>,
-    #[serde(flatten)]
-    attributes: HashMap<String, Value>,
-}
-
-fn websocket_url(url: &Url, subscribe: bool, query: &str) -> Url {
-    use url::form_urlencoded::Serializer;
-
-    let query = Serializer::new(String::new())
-        .append_pair("subscribe", &subscribe.to_string())
-        .append_pair("query", query)
-        .finish();
-    let mut url = url.clone().join("index/").unwrap();
-    url.set_query(Some(&query));
-    url
-}
-
-fn base_url(mut url: Url) -> Result<Url, url::ParseError> {
-    match url.path_segments_mut() {
-        Ok(mut path) => path.clear(),
-        Err(_) => return Err(url::ParseError::RelativeUrlWithCannotBeABaseBase),
-    };
-    url.set_query(None);
-    Ok(url)
-}
-
-fn deserialize_collections<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    // Deserialize null to empty Vec
-    Deserialize::deserialize(deserializer).or(Ok(vec![]))
 }
