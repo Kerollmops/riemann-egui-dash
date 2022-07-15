@@ -2,7 +2,7 @@ use eframe::egui::{Button, Color32, Direction, Id, Layout, TextEdit};
 use eframe::{egui, App, Frame};
 use url::Url;
 
-use crate::views::Log;
+use crate::views::{Log, View};
 
 pub struct RiemannDashApp {
     valid_url: Url,
@@ -83,7 +83,7 @@ impl Default for RiemannDashApp {
 
 struct Workspace {
     name: String,
-    widgets: Vec<Log>,
+    views: Vec<Box<dyn View>>,
 }
 
 impl Workspace {
@@ -95,7 +95,7 @@ impl Workspace {
             ui.add(TextEdit::singleline(&mut self.name).hint_text("Workspace Name"));
             ui.separator();
             if ui.button("📃 Scrolling List").clicked() {
-                self.widgets.push(Log::default());
+                self.views.push(Box::new(Log::default()));
             }
             ui.separator();
             if ui.add(Button::new("🗑 Delete workpace").fill(Color32::LIGHT_RED)).clicked() {
@@ -109,13 +109,10 @@ impl Workspace {
 
         let mut to_delete = Vec::new();
         egui::CentralPanel::default().show(ctx, |_ui| {
-            for (i, widget) in self.widgets.iter_mut().enumerate() {
-                let mut opened = true;
-                egui::Window::new("<widget type name>")
-                    .id(Id::new(i))
-                    .open(&mut opened)
-                    .show(ctx, |ui| widget.ui(url, ui));
-                if opened == false {
+            for (i, view) in self.views.iter_mut().enumerate() {
+                let mut open = true;
+                view.show(ctx, Id::new(i), url, &mut open);
+                if open == false {
                     to_delete.push(i);
                 }
             }
@@ -123,7 +120,7 @@ impl Workspace {
 
         let mut removed = 0;
         for i in to_delete {
-            self.widgets.remove(i - removed);
+            self.views.remove(i - removed);
             removed += 1;
         }
 
@@ -133,6 +130,6 @@ impl Workspace {
 
 impl Default for Workspace {
     fn default() -> Self {
-        Self { name: "Riemann".to_string(), widgets: Default::default() }
+        Self { name: "Riemann".to_string(), views: Default::default() }
     }
 }

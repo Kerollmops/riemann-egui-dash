@@ -4,6 +4,7 @@ use egui_extras::{Size, TableBuilder};
 use ewebsock::{WsEvent, WsMessage};
 use url::Url;
 
+use super::View;
 use crate::event::{Event, EventReceiver};
 use crate::{base_url, websocket_url};
 
@@ -14,8 +15,16 @@ pub struct Log {
     event_receiver: Option<EventReceiver>,
 }
 
-impl Log {
-    pub fn ui(&mut self, url: &Url, ui: &mut egui::Ui) {
+impl View for Log {
+    fn title(&self) -> String {
+        String::from("📃 Scrolling List")
+    }
+
+    fn show(&mut self, ctx: &egui::Context, id: egui::Id, url: &Url, open: &mut bool) {
+        egui::Window::new(self.title()).id(id).open(open).show(ctx, |ui| self.ui(ui, url));
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, url: &Url) {
         if let Some(event_receiver) = &self.event_receiver {
             while let Some(event) = event_receiver.try_recv() {
                 if let WsEvent::Message(WsMessage::Text(text)) = event {
@@ -97,39 +106,40 @@ impl Log {
                         ui.heading("Description");
                     });
                 })
-                .body(|body| {
-                    body.rows(25.0, self.events.len(), |index, mut row| {
-                        let event = &self.events[index];
-                        row.col(|ui| {
-                            if let Some(host) = &event.host {
-                                ui.label(host);
-                            }
-                        });
-                        row.col(|ui| {
-                            if let Some(service) = &event.service {
-                                ui.label(service);
-                            }
-                        });
-                        row.col(|ui| {
-                            if let Some(state) = &event.state {
-                                if state == "ok" {
-                                    ui.label(state);
-                                } else {
-                                    ui.label(RichText::new(state).color(Color32::LIGHT_RED));
+                .body(|mut body| {
+                    for event in &self.events {
+                        body.row(25.0, |mut row| {
+                            row.col(|ui| {
+                                if let Some(host) = &event.host {
+                                    ui.label(host);
                                 }
-                            }
-                        });
-                        row.col(|ui| {
-                            if let Some(metric) = event.metric {
-                                ui.label(format!("{:.02?}", metric));
-                            }
-                        });
-                        row.col(|ui| {
-                            if let Some(description) = &event.description {
-                                ui.label(description);
-                            }
-                        });
-                    })
+                            });
+                            row.col(|ui| {
+                                if let Some(service) = &event.service {
+                                    ui.label(service);
+                                }
+                            });
+                            row.col(|ui| {
+                                if let Some(state) = &event.state {
+                                    if state == "ok" {
+                                        ui.label(state);
+                                    } else {
+                                        ui.label(RichText::new(state).color(Color32::LIGHT_RED));
+                                    }
+                                }
+                            });
+                            row.col(|ui| {
+                                if let Some(metric) = event.metric {
+                                    ui.label(format!("{:.02?}", metric));
+                                }
+                            });
+                            row.col(|ui| {
+                                if let Some(description) = &event.description {
+                                    ui.label(description);
+                                }
+                            });
+                        })
+                    }
                 });
         });
     }
