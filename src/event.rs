@@ -31,7 +31,8 @@ impl EventReceiver {
 
 #[derive(Debug, Deserialize)]
 pub struct Event {
-    pub time: Option<String>,
+    #[serde(deserialize_with = "time::serde::iso8601::option::deserialize")]
+    pub time: Option<time::OffsetDateTime>,
     pub state: Option<String>,
     pub service: Option<String>,
     pub host: Option<String>,

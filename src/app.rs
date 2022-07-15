@@ -2,7 +2,7 @@ use eframe::egui::{Button, Color32, Direction, Id, Layout, TextEdit};
 use eframe::{egui, App, Frame};
 use url::Url;
 
-use crate::views::{Log, View};
+use crate::views::{Flot, Log, View};
 
 pub struct RiemannDashApp {
     valid_url: Url,
@@ -91,11 +91,13 @@ impl Workspace {
         let mut is_open = true;
 
         egui::SidePanel::right("workspace_right_side_panel").show(ctx, |ui| {
-            ui.separator();
             ui.add(TextEdit::singleline(&mut self.name).hint_text("Workspace Name"));
             ui.separator();
             if ui.button("📃 Scrolling List").clicked() {
                 self.views.push(Box::new(Log::default()));
+            }
+            if ui.button("📈 Flot Graph").clicked() {
+                self.views.push(Box::new(Flot::default()));
             }
             ui.separator();
             if ui.add(Button::new("🗑 Delete workpace").fill(Color32::LIGHT_RED)).clicked() {

@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use eframe::egui;
-use eframe::egui::{Color32, RichText, TextStyle};
-use egui_extras::{Size, TableBuilder};
+use eframe::egui::plot::{Legend, Line, Plot, Value, Values};
+use eframe::egui::TextStyle;
 use ewebsock::{WsEvent, WsMessage};
 use url::Url;
 
@@ -8,16 +10,16 @@ use super::View;
 use crate::event::{Event, EventReceiver};
 use crate::{base_url, websocket_url};
 
-pub struct Log {
+pub struct Flot {
     query: String,
     limit: f32,
     events: Vec<Event>,
     event_receiver: Option<EventReceiver>,
 }
 
-impl View for Log {
+impl View for Flot {
     fn title(&self) -> String {
-        String::from("📃 Scrolling List")
+        String::from("📈 Flot Graph")
     }
 
     fn show(&mut self, ctx: &egui::Context, id: egui::Id, url: &Url, open: &mut bool) {
@@ -81,72 +83,26 @@ impl View for Log {
             });
         });
 
-        egui::ScrollArea::vertical().stick_to_bottom().show(ui, |ui| {
-            TableBuilder::new(ui)
-                .resizable(true)
-                .stick_to_bottom()
-                .column(Size::initial(120.0).at_least(60.0)) // host
-                .column(Size::initial(120.0).at_least(60.0)) // service
-                .column(Size::initial(50.0).at_least(20.0)) // state
-                .column(Size::initial(60.0).at_least(20.0)) // metric
-                .column(Size::remainder().at_least(60.0)) // description
-                .header(25.0, |mut header| {
-                    header.col(|ui| {
-                        ui.heading("Host");
-                    });
-                    header.col(|ui| {
-                        ui.heading("Service");
-                    });
-                    header.col(|ui| {
-                        ui.heading("State");
-                    });
-                    header.col(|ui| {
-                        ui.heading("Metric");
-                    });
-                    header.col(|ui| {
-                        ui.heading("Description");
-                    });
-                })
-                .body(|mut body| {
-                    for event in &self.events {
-                        body.row(25.0, |mut row| {
-                            row.col(|ui| {
-                                if let Some(host) = &event.host {
-                                    ui.label(host);
-                                }
-                            });
-                            row.col(|ui| {
-                                if let Some(service) = &event.service {
-                                    ui.label(service);
-                                }
-                            });
-                            row.col(|ui| {
-                                if let Some(state) = &event.state {
-                                    if state == "ok" {
-                                        ui.label(state);
-                                    } else {
-                                        ui.label(RichText::new(state).color(Color32::LIGHT_RED));
-                                    }
-                                }
-                            });
-                            row.col(|ui| {
-                                if let Some(metric) = event.metric {
-                                    ui.label(format!("{:.02?}", metric));
-                                }
-                            });
-                            row.col(|ui| {
-                                if let Some(description) = &event.description {
-                                    ui.label(description);
-                                }
-                            });
-                        })
-                    }
-                });
+        Plot::new("lines").legend(Legend::default()).show(ui, |plot_ui| {
+            let mut lines = BTreeMap::new();
+            for event in &self.events {
+                if let Some(((service, metric), time)) =
+                    event.service.as_ref().zip(event.metric).zip(event.time)
+                {
+                    let time = time.unix_timestamp_nanos() / 1_000_000; // millis
+                    let point = Value { x: time as f64, y: metric as f64 };
+                    lines.entry(service).or_insert_with(Vec::new).push(point);
+                }
+            }
+
+            for (service, points) in lines {
+                plot_ui.line(Line::new(Values::from_values(points)).name(service));
+            }
         });
     }
 }
 
-impl Default for Log {
+impl Default for Flot {
     fn default() -> Self {
         Self {
             query: Default::default(),
