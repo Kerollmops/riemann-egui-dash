@@ -1,4 +1,4 @@
-use eframe::egui::{Color32, Direction, Id, Layout};
+use eframe::egui::{Button, Color32, Direction, Id, Layout, TextEdit};
 use eframe::{egui, App, Frame};
 use url::Url;
 
@@ -91,16 +91,19 @@ impl Workspace {
         let mut is_open = true;
 
         egui::SidePanel::right("workspace_right_side_panel").show(ctx, |ui| {
-            ui.label("Workspace name:");
-            ui.text_edit_singleline(&mut self.name);
             ui.separator();
-            let delete_button = egui::Button::new("delete workpace").fill(egui::Color32::LIGHT_RED);
-            if ui.add(delete_button).clicked() {
-                is_open = false;
+            ui.add(TextEdit::singleline(&mut self.name).hint_text("Workspace Name"));
+            ui.separator();
+            if ui.button("📃 Scrolling List").clicked() {
+                self.widgets.push(Log::default());
             }
             ui.separator();
-            if ui.button("☟ scrolling list").clicked() {
-                self.widgets.push(Log::default());
+            if ui.add(Button::new("🗑 Delete workpace").fill(Color32::LIGHT_RED)).clicked() {
+                is_open = false;
+            }
+            if ui.button("Organize windows").clicked() {
+                ui.ctx().memory().reset_areas();
+                ui.close_menu();
             }
         });
 
