@@ -9,8 +9,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.58"
 clap = { version = "3.2.10", features = ["derive"] }
-eframe = "0.18.0" # add the "syntect" feature
-egui_extras = "0.18.0"
+eframe = { path = "../egui/eframe" }
+# eframe = "0.18.0" # add the "syntect" feature
+egui_extras = { path = "../egui/egui_extras" }
+# egui_extras = "0.18.0"
 ewebsock = { version = "0.2.0", features = ["tls"] }
 serde = { version = "1.0.82", features = ["derive"] }
 serde_json = "1.0.82"
