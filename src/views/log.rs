@@ -66,8 +66,7 @@ impl View for Log {
                             .as_ref()
                             .map_or(false, |er| base_url(er.url().clone()) != base_url(url.clone()))
                     {
-                        let ctx = ui.ctx().clone();
-                        let wakeup = move || ctx.request_repaint(); // wake up UI thread on new message
+                        let wakeup = move || ();
                         let url = websocket_url(url, true, &self.query);
                         match EventReceiver::connect(url, wakeup) {
                             Ok(event_receiver) => {
