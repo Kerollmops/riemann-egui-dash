@@ -82,22 +82,30 @@ impl View for Flot {
             });
         });
 
-        Plot::new("lines").legend(Legend::default()).show(ui, |plot_ui| {
-            let mut lines = BTreeMap::new();
-            for event in &self.events {
-                if let Some(((service, metric), time)) =
-                    event.service.as_ref().zip(event.metric).zip(event.time)
-                {
-                    let time = time.unix_timestamp_nanos() / 1_000_000; // millis
-                    let point = Value { x: time as f64, y: metric as f64 };
-                    lines.entry(service).or_insert_with(Vec::new).push(point);
-                }
+        let mut lines = BTreeMap::new(); // for color stability
+        let mut highest_x: f64 = 0.0;
+        let mut highest_y: f64 = 0.0;
+        for event in &self.events {
+            if let Some(((service, metric), time)) =
+                event.service.as_ref().zip(event.metric).zip(event.time)
+            {
+                let time = time.unix_timestamp_nanos() / 1_000_000; // millis
+                let point = Value { x: time as f64, y: metric as f64 };
+                highest_x = highest_x.max(point.x);
+                highest_y = highest_y.max(point.y);
+                lines.entry(service).or_insert_with(Vec::new).push(point);
             }
+        }
 
-            for (service, points) in lines {
-                plot_ui.line(Line::new(Values::from_values(points)).name(service));
-            }
-        });
+        Plot::new("lines")
+            .legend(Legend::default())
+            .include_x(highest_x)
+            .include_y(highest_y)
+            .show(ui, |plot_ui| {
+                for (service, points) in lines {
+                    plot_ui.line(Line::new(Values::from_values(points)).name(service));
+                }
+            });
     }
 }
 
