@@ -2,8 +2,10 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod app;
+mod confirm_button;
 mod event;
 mod views;
+mod workspace;
 
 pub use app::RiemannDashApp;
 #[cfg(target_arch = "wasm32")] // When compiling for web

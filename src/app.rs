@@ -1,8 +1,8 @@
-use eframe::egui::{Button, Color32, Direction, Id, Layout, TextEdit};
+use eframe::egui::{Color32, Direction, Id, Layout};
 use eframe::{egui, App, Frame};
 use url::Url;
 
-use crate::views::{Flot, Log, View};
+use crate::workspace::Workspace;
 
 pub struct RiemannDashApp {
     valid_url: Url,
@@ -15,7 +15,25 @@ impl App for RiemannDashApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.label("WS URL:");
+                egui::widgets::global_dark_light_mode_switch(ui);
+
+                ui.separator();
+
+                for (i, workspace) in self.workspaces.iter_mut().enumerate() {
+                    if ui.selectable_label(self.selected_workspace == i, &workspace.name).clicked()
+                    {
+                        workspace.reset_confirm_delete();
+                        self.selected_workspace = i;
+                    }
+                }
+
+                if ui.button("+").clicked() {
+                    self.workspaces.push(Workspace::default());
+                    self.selected_workspace = self.workspaces.len().saturating_sub(1);
+                }
+
+                ui.separator();
+
                 let valid_editable_url = Url::parse(&self.editable_url).is_ok();
                 let lost_focus = ui
                     .with_layout(Layout::left_to_right(), |ui| {
@@ -32,20 +50,8 @@ impl App for RiemannDashApp {
                         Err(e) => eprintln!("{}", e),
                     }
                 }
-                ui.separator();
 
-                for (i, workspace) in self.workspaces.iter().enumerate() {
-                    if self.selected_workspace == i {
-                        ui.add(egui::Button::new(&workspace.name).fill(egui::Color32::LIGHT_BLUE));
-                    } else if ui.button(&workspace.name).clicked() {
-                        self.selected_workspace = i;
-                    }
-                }
-
-                if ui.button("+").clicked() {
-                    self.workspaces.push(Workspace::default());
-                    self.selected_workspace = self.workspaces.len().saturating_sub(1);
-                }
+                ui.label("dis/connected");
             });
         });
 
@@ -53,7 +59,9 @@ impl App for RiemannDashApp {
             self.selected_workspace.min(self.workspaces.len().saturating_sub(1));
         match self.workspaces.get_mut(self.selected_workspace) {
             Some(workspace) => {
-                if !workspace.ui(&self.valid_url, ctx) {
+                let mut open = true;
+                workspace.ui(Id::new(self.selected_workspace), &self.valid_url, &mut open, ctx);
+                if !open {
                     self.workspaces.remove(self.selected_workspace);
                 }
             }
@@ -78,60 +86,5 @@ impl Default for RiemannDashApp {
             selected_workspace: 0,
             workspaces: vec![Workspace::default()],
         }
-    }
-}
-
-struct Workspace {
-    name: String,
-    views: Vec<Box<dyn View>>,
-}
-
-impl Workspace {
-    fn ui(&mut self, url: &Url, ctx: &egui::Context) -> bool {
-        let mut is_open = true;
-
-        egui::SidePanel::right("workspace_right_side_panel").show(ctx, |ui| {
-            ui.add(TextEdit::singleline(&mut self.name).hint_text("Workspace Name"));
-            ui.separator();
-            if ui.button("📃 Scrolling List").clicked() {
-                self.views.push(Box::new(Log::default()));
-            }
-            if ui.button("📈 Flot Graph").clicked() {
-                self.views.push(Box::new(Flot::default()));
-            }
-            ui.separator();
-            if ui.add(Button::new("🗑 Delete workpace").fill(Color32::LIGHT_RED)).clicked() {
-                is_open = false;
-            }
-            if ui.button("Organize windows").clicked() {
-                ui.ctx().memory().reset_areas();
-                ui.close_menu();
-            }
-        });
-
-        let mut to_delete = Vec::new();
-        egui::CentralPanel::default().show(ctx, |_ui| {
-            for (i, view) in self.views.iter_mut().enumerate() {
-                let mut open = true;
-                view.show(ctx, Id::new(i), url, &mut open);
-                if open == false {
-                    to_delete.push(i);
-                }
-            }
-        });
-
-        let mut removed = 0;
-        for i in to_delete {
-            self.views.remove(i - removed);
-            removed += 1;
-        }
-
-        is_open
-    }
-}
-
-impl Default for Workspace {
-    fn default() -> Self {
-        Self { name: "Riemann".to_string(), views: Default::default() }
     }
 }
