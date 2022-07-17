@@ -39,6 +39,9 @@ impl Workspace {
                 if ui.button(flot::DEFAULT_TITLE).clicked() {
                     self.views.push(Box::new(flot::Flot::default()));
                 }
+                if ui.button(big_number::DEFAULT_TITLE).clicked() {
+                    self.views.push(Box::new(big_number::BigNumber::default()));
+                }
 
                 ui.separator();
 

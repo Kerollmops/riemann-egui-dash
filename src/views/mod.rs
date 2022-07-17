@@ -2,6 +2,7 @@ use eframe::egui;
 use url::Url;
 
 pub mod about;
+pub mod big_number;
 pub mod flot;
 pub mod log;
 
