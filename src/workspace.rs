@@ -4,11 +4,12 @@ use eframe::egui::{Color32, Id, TextEdit};
 use url::Url;
 
 use crate::confirm_button::{Clicked, ConfirmButton};
-use crate::views::{Flot, Log, View};
+use crate::views::*;
 
 pub struct Workspace {
     pub name: String,
     delete_clicked: Clicked,
+    about: Option<about::About>,
     views: Vec<Box<dyn View>>,
 }
 
@@ -23,11 +24,20 @@ impl Workspace {
 
                 ui.separator();
 
-                if ui.button("📃 Scrolling List").clicked() {
-                    self.views.push(Box::new(Log::default()));
+                if ui.selectable_label(self.about.is_some(), about::DEFAULT_TITLE).clicked() {
+                    self.about = match self.about {
+                        Some(_) => None,
+                        None => Some(about::About::default()),
+                    };
                 }
-                if ui.button("📈 Flot Graph").clicked() {
-                    self.views.push(Box::new(Flot::default()));
+
+                ui.separator();
+
+                if ui.button(log::DEFAULT_TITLE).clicked() {
+                    self.views.push(Box::new(log::Log::default()));
+                }
+                if ui.button(flot::DEFAULT_TITLE).clicked() {
+                    self.views.push(Box::new(flot::Flot::default()));
                 }
 
                 ui.separator();
@@ -53,6 +63,14 @@ impl Workspace {
 
         let mut to_delete = Vec::new();
         egui::CentralPanel::default().show(ctx, |_ui| {
+            let mut open = true;
+            if let Some(about) = self.about.as_mut() {
+                about.show(ctx, parent_id.with("about"), url, &mut open);
+                if open == false {
+                    self.about = None;
+                }
+            }
+
             for (i, view) in self.views.iter_mut().enumerate() {
                 let mut open = true;
                 view.show(ctx, parent_id.with(i), url, &mut open);
@@ -79,6 +97,7 @@ impl Default for Workspace {
         Self {
             name: "Riemann".to_string(),
             delete_clicked: Default::default(),
+            about: Some(about::About::default()),
             views: Default::default(),
         }
     }

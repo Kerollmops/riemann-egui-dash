@@ -50,8 +50,6 @@ impl App for RiemannDashApp {
                         Err(e) => eprintln!("{}", e),
                     }
                 }
-
-                ui.label("dis/connected");
             });
         });
 

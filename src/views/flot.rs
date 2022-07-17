@@ -10,6 +10,8 @@ use super::View;
 use crate::event::{Event, EventReceiver};
 use crate::{base_url, websocket_url};
 
+pub const DEFAULT_TITLE: &str = "📈 Flot Graph";
+
 pub struct Flot {
     query: String,
     limit: f32,
@@ -19,7 +21,7 @@ pub struct Flot {
 
 impl View for Flot {
     fn title(&self) -> String {
-        String::from("📈 Flot Graph")
+        DEFAULT_TITLE.to_string()
     }
 
     fn show(&mut self, ctx: &egui::Context, id: egui::Id, url: &Url, open: &mut bool) {

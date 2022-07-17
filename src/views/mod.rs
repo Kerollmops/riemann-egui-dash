@@ -1,11 +1,9 @@
 use eframe::egui;
 use url::Url;
 
-mod flot;
-mod log;
-
-pub use self::flot::Flot;
-pub use self::log::Log;
+pub mod about;
+pub mod flot;
+pub mod log;
 
 pub trait View {
     fn title(&self) -> String;

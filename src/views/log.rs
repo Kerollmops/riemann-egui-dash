@@ -8,6 +8,8 @@ use super::View;
 use crate::event::{Event, EventReceiver};
 use crate::{base_url, websocket_url};
 
+pub const DEFAULT_TITLE: &str = "📃 Scrolling List";
+
 pub struct Log {
     query: String,
     limit: f32,
@@ -17,7 +19,7 @@ pub struct Log {
 
 impl View for Log {
     fn title(&self) -> String {
-        String::from("📃 Scrolling List")
+        DEFAULT_TITLE.to_string()
     }
 
     fn show(&mut self, ctx: &egui::Context, id: egui::Id, url: &Url, open: &mut bool) {
