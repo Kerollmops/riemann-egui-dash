@@ -85,7 +85,7 @@ impl View for Log {
         egui::ScrollArea::vertical().stick_to_bottom().show(ui, |ui| {
             TableBuilder::new(ui)
                 .resizable(true)
-                .stick_to_bottom()
+                // .stick_to_bottom()
                 .column(Size::initial(120.0).at_least(60.0)) // host
                 .column(Size::initial(120.0).at_least(60.0)) // service
                 .column(Size::initial(50.0).at_least(20.0)) // state
